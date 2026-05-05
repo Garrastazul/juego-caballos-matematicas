@@ -1,0 +1,24 @@
+{
+    "ANCHO": 1000,
+    "ALTO": 650,
+    "FPS": 120,
+    "COLOR_CESPED": [
+        136,
+        179,
+        45
+    ],
+    "COLOR_TIERRA": [
+        139,
+        69,
+        19
+    ],
+    "COLOR_META": [
+        255,
+        255,
+        255
+    ],
+    "META_X": 900,
+    "NUM_OPERACIONES": 3,
+    "DB_NAME": "estadisticas_juego.db",
+    "CABALLO_GIF": "caballo.gif"
+}
