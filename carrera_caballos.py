@@ -101,7 +101,7 @@ class NivelEstrategia:
 
 class Nivel1(NivelEstrategia):
     def generar(self, subzona):
-        tipo = random.choice(["*", "/", "+", "-"])
+        tipo = random.choice(["*", "-"])
         if tipo in ["+", "-"]:
             decimales = {"a": 1, "b": 2, "c": 3}[subzona]
             a = round(random.uniform(0.001, 10.000), decimales)
@@ -118,7 +118,7 @@ class Nivel1(NivelEstrategia):
 
 class Nivel2(NivelEstrategia):
     def generar(self, subzona):
-        tipo = random.choice(["*", "/", "+", "-"])
+        tipo = random.choice(["*", "-"])
         if tipo in ["+", "-"]:
             dec_a, dec_b = random.randint(1, 3), random.randint(2, 3)
             a = round(random.uniform(0.001, 10.000), dec_a)
