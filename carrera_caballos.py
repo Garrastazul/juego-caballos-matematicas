@@ -3,6 +3,7 @@ import random
 import os
 import decimal
 import sqlite3
+import math
 import json
 from decimal import Decimal, ROUND_HALF_UP
 from PIL import Image
@@ -32,7 +33,26 @@ def cargar_configuracion():
 CONFIG = cargar_configuracion()
 PIXELES_AVANZA = (CONFIG["META_X"] - 30) / CONFIG["NUM_OPERACIONES"]
 
+# Tiempo estimado de movimiento en ms
+LERP_FACTOR = 0.05
+UMBRAL = 0.5
+# frames necesarios para llegar al umbral
+FRAMES_MOVIMIENTO = int(math.ceil(math.log(UMBRAL / PIXELES_AVANZA) / math.log(1 - LERP_FACTOR)))
+DURACION_SONIDO_CABALLO = int(FRAMES_MOVIMIENTO * 1000 / CONFIG["FPS"])
+
 pygame.init()
+pygame.mixer.init()
+
+# Carga segura de sonidos
+try:
+    sonido_caballo = pygame.mixer.Sound("sonido_caballo.mp3")
+except:
+    sonido_caballo = None
+try:
+    sonido_error = pygame.mixer.Sound("error.mp3")
+except:
+    sonido_error = None
+
 fuente_nombres = pygame.font.SysFont("Verdana", 20, bold=True)
 fuente_op = pygame.font.SysFont("Consolas", 35, bold=True)
 fuente_ganador = pygame.font.SysFont("Impact", 60)
@@ -100,7 +120,7 @@ class Suma(OperacionBase):
     def generar(self, subzona):
         decimales = {"a": 1, "b": 2, "c": 3}[subzona]
         a = round(random.uniform(0.1, 10.000), decimales)
-        dec_b = random.randint(0, decimales)
+        dec_b = random.randint(1, decimales)
         b = round(random.uniform(0.1, 10.000), dec_b)
         return f"{a} + {b}", round(a + b, decimales)
 
@@ -108,7 +128,7 @@ class Resta(OperacionBase):
     def generar(self, subzona):
         decimales = {"a": 1, "b": 2, "c": 3}[subzona]
         a = round(random.uniform(0.1, 10.000), decimales)
-        dec_b = random.randint(0, decimales)
+        dec_b = random.randint(1, decimales)
         b = round(random.uniform(0.1, 10.000), dec_b)
         if a < b:
             a, b = b, a
@@ -291,6 +311,8 @@ class Caballo:
 
     def avanzar(self, pixeles):
         self.target_x += pixeles
+        if sonido_caballo:
+            sonido_caballo.play(maxtime=DURACION_SONIDO_CABALLO)
 
     def avanzar_fantasma(self):
         if random.random() < self.precision_fantasma:
@@ -354,6 +376,8 @@ class ManagerEntrada:
                     self.mensaje, self.efecto_color = "¡CORRECTO!", (0, 255, 0)
                 else:
                     self.mensaje, self.efecto_color = "ERROR", (255, 50, 50)
+                    if sonido_error:
+                        sonido_error.play()
                 
                 self.generar_nueva_op()
 
