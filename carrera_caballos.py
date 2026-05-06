@@ -36,14 +36,12 @@ PIXELES_AVANZA = (CONFIG["META_X"] - 30) / CONFIG["NUM_OPERACIONES"]
 # Tiempo estimado de movimiento en ms
 LERP_FACTOR = 0.05
 UMBRAL = 0.5
-# frames necesarios para llegar al umbral
 FRAMES_MOVIMIENTO = int(math.ceil(math.log(UMBRAL / PIXELES_AVANZA) / math.log(1 - LERP_FACTOR)))
 DURACION_SONIDO_CABALLO = int(FRAMES_MOVIMIENTO * 1000 / CONFIG["FPS"])
 
 pygame.init()
 pygame.mixer.init()
 
-# Carga segura de sonidos
 try:
     sonido_caballo = pygame.mixer.Sound("sonido_caballo.mp3")
 except:
@@ -102,6 +100,18 @@ class DatabaseManager:
         resultado = self.cursor.fetchone()[0]
         return resultado if resultado else 5000.0
 
+    def obtener_ultimas_respuestas(self, nombre_jugador, limite=20):
+        """Devuelve una lista de booleanos con los últimos 'limite' resultados (True=acierto, False=fallo),
+        ordenados del más antiguo al más reciente."""
+        self.cursor.execute('''
+            SELECT es_correcta FROM operaciones 
+            WHERE jugador = ? 
+            ORDER BY id DESC LIMIT ?
+        ''', (nombre_jugador, limite))
+        filas = self.cursor.fetchall()
+        # La consulta devuelve los más recientes primero, invertimos para orden cronológico
+        return [bool(fila[0]) for fila in reversed(filas)]
+
     def guardar(self, jugador, op, resp_j, resp_c, corr, diff, subz, tiempo):
         self.cursor.execute('''
             INSERT INTO operaciones (jugador, operacion, respuesta_jugador, respuesta_correcta, es_correcta, dificultad, subzona, tiempo_ms)
@@ -143,12 +153,12 @@ class Multiplicacion(OperacionBase):
             b = random.randint(2, 9)
         elif subzona == "b":
             dec_a = random.randint(1, 2)
-            dec_b = random.randint(0, 3-dec_a)
+            dec_b = random.randint(1, max(1, 3-dec_a))
             a = round(random.uniform(0.1, 9.99), dec_a)
             b = round(random.uniform(0.1, 9.99), dec_b)
         else: 
             dec_a = random.randint(1, 3)
-            dec_b = random.randint(1, 3-dec_a)
+            dec_b = random.randint(1, max(1, 3-dec_a))
             a = round(random.uniform(0.1, 9.999), dec_a)
             b = round(random.uniform(0.1, 9.999), dec_b)
         
@@ -207,20 +217,32 @@ class OperacionFactory:
         else:
             return Division().generar(subzona)
 
-# --- 4. Sistema de Eventos y Optimización ---
+# --- 4. Sistema de Eventos y Optimización (Stats con ventana deslizante) ---
 class Stats:
-    def __init__(self, total_previo=0, aciertos_previos=0):
-        self.total = total_previo
-        self.aciertos = aciertos_previos
-        self.accuracy = (self.aciertos / self.total) if self.total > 0 else 0.0
+    def __init__(self, historial_inicial=None):
+        """
+        historial_inicial: lista de booleanos (True=acierto) con los últimos 20 resultados históricos.
+        Si no se proporciona, se empieza con ventana vacía (precisión 0).
+        """
+        self.window_size = 20
+        self.historial = list(historial_inicial) if historial_inicial else []
+        # Mantener el tamaño máximo
+        if len(self.historial) > self.window_size:
+            self.historial = self.historial[-self.window_size:]
         self.streak = 0
+        self.accuracy = self._calcular_precision()
+
+    def _calcular_precision(self):
+        if not self.historial:
+            return 0.0
+        return sum(self.historial) / len(self.historial)
 
     def registrar_respuesta(self, correcta):
-        self.total += 1
-        if correcta:
-            self.aciertos += 1
+        self.historial.append(correcta)
+        if len(self.historial) > self.window_size:
+            self.historial.pop(0)
+        self.accuracy = self._calcular_precision()
         self.streak = self.streak + 1 if correcta else 0
-        self.accuracy = self.aciertos / self.total
 
     def get_subzona(self):
         if self.accuracy > 0.85:
@@ -281,14 +303,13 @@ class Caballo:
         
         self.last_intento_fantasma = pygame.time.get_ticks() if es_fantasma else 0
         
+        # Inicialización de estadísticas con ventana deslizante (últimas 20)
         if guardar_datos:
-            try:
-                total, aciertos = DB.obtener_stats_historicas(nombre)
-                self.stats = Stats(total, aciertos)
-            except Exception:
-                self.stats = Stats()
+            # Obtener las últimas 20 respuestas del historial
+            ultimas = DB.obtener_ultimas_respuestas(nombre)
+            self.stats = Stats(historial_inicial=ultimas)
         else:
-            self.stats = Stats()
+            self.stats = Stats()  # ventana vacía
 
     def actualizar(self):
         ahora = pygame.time.get_ticks()
@@ -303,7 +324,7 @@ class Caballo:
                 self.avanzar_fantasma()
 
         if abs(self.target_x - self.pos_x) > 0.5:
-            self.pos_x += (self.target_x - self.pos_x) * 0.08
+            self.pos_x += (self.target_x - self.pos_x) * LERP_FACTOR
             self.rect.x = int(self.pos_x)
         
         if self.rect.right >= CONFIG["META_X"]:
