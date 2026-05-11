@@ -33,7 +33,6 @@ def cargar_configuracion():
 
 CONFIG = cargar_configuracion()
 PIXELES_AVANZA = (CONFIG["META_X"] - 30) / CONFIG["NUM_OPERACIONES"]
-
 LERP_FACTOR = 0.05
 UMBRAL = 0.5
 FRAMES_MOVIMIENTO = int(math.ceil(math.log(UMBRAL / PIXELES_AVANZA) / math.log(1 - LERP_FACTOR)))
