@@ -9,6 +9,10 @@ from enum import Enum
 from decimal import Decimal, ROUND_HALF_UP
 from PIL import Image
 
+# --- Constantes de momento (NUEVAS) ---
+MOMENTUM_FACTOR = 0.2      # 20% extra por cada acierto consecutivo
+MAX_MOMENTUM_MULT = 3.0    # como máximo 3x el avance base
+
 # --- 1. Configuración Externa (JSON) ---
 DEFAULT_CONFIG = {
     "ANCHO": 1000,
@@ -109,7 +113,6 @@ class Renderer:
 
     @staticmethod
     def dibujar_menu(ventana, botones, mouse_pos, info_textos=None):
-        # Solo fondo verde, sin el campo de carreras
         ventana.fill(CONFIG["COLOR_CESPED"])
         titulo = fuente_ganador.render("HIPÓDROMO MATEMÁTICO", True, (255, 255, 255))
         ventana.blit(titulo, (CONFIG["ANCHO"] // 2 - titulo.get_width() // 2, 120))
@@ -348,6 +351,9 @@ class Caballo:
         self.es_fantasma = es_fantasma
         self.precision_fantasma = precision_fantasma
         self.tiempo_medio_fantasma = tiempo_medio_fantasma
+        # NUEVO: racha interna para el fantasma
+        self.fantasy_streak = 0 if es_fantasma else None
+
         self.frames = AssetManager.get_caballo(imagen_path, color)
         self.frame_idx = 0
         self.last_anim = pygame.time.get_ticks()
@@ -363,8 +369,14 @@ class Caballo:
         else:
             self.stats = Stats()
 
+    @property
+    def current_streak(self):            
+        if self.es_fantasma:
+            return self.fantasy_streak
+        else:
+            return self.stats.streak
+
     def actualizar(self, congelado=False):
-        """Si 'congelado' es True, no se generan nuevos movimientos (ni fantasma), pero se sigue la interpolación."""
         ahora = pygame.time.get_ticks()
         if ahora - self.last_anim > 50:
             self.last_anim = ahora
@@ -380,15 +392,28 @@ class Caballo:
         if self.rect.right >= CONFIG["META_X"]:
             self.meta_alcanzada = True
 
-    def avanzar(self, pixeles):
-        self.target_x += pixeles
+    def avanzar(self, base_pixeles):      # <-- MODIFICADO: ahora aplica momento
+        streak = self.current_streak
+        extra = base_pixeles * streak * MOMENTUM_FACTOR
+        total = base_pixeles + extra
+        # Limitar el avance máximo
+        total = min(total, base_pixeles * MAX_MOMENTUM_MULT)
+        self.target_x += total
         sound_manager.play('caballo', maxtime=DURACION_SONIDO_CABALLO)
+    
+    def punish(self, pixeles):
+        self.target_x = max(0.0, self.target_x - pixeles)
+        self.pos_x = max(0.0, self.pos_x)
+        sound_manager.play('error', maxtime=DURACION_SONIDO_CABALLO)
 
-    def avanzar_fantasma(self):
+    def avanzar_fantasma(self):          # <-- MODIFICADO: actualiza la racha del fantasma
         if random.random() < self.precision_fantasma:
+            self.fantasy_streak += 1
             self.avanzar(PIXELES_AVANZA)
             return True
-        return False
+        else:
+            self.fantasy_streak = 0
+            return False
 
     def dibujar(self, ventana):
         if self.es_fantasma:
@@ -403,7 +428,6 @@ class Caballo:
         ventana.blit(txt, (self.rect.x, self.rect.y - 30))
 
     def esta_en_movimiento(self):
-        """Devuelve True si aún se está interpolando hacia el objetivo."""
         return abs(self.target_x - self.pos_x) > 0.5
 
 class ManagerEntrada:
@@ -442,8 +466,8 @@ class ManagerEntrada:
                     self.caballo.avanzar(PIXELES_AVANZA)
                     self.mensaje, self.efecto_color = "¡CORRECTO!", (0, 255, 0)
                 else:
+                    self.caballo.punish(PIXELES_AVANZA)
                     self.mensaje, self.efecto_color = "ERROR", (255, 50, 50)
-                    sound_manager.play('error')
                 self.generar_nueva_op()
             except decimal.InvalidOperation:
                 self.mensaje, self.efecto_color = "VALOR INVÁLIDO", (255, 165, 0)
