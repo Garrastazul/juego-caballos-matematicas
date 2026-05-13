@@ -209,6 +209,9 @@ class DatabaseManager:
             VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         ''', (jugador, op, resp_j, resp_c, corr, diff, subz, tiempo))
         self.conn.commit()
+    
+    def cerrar(self):
+        self.conn.close()
 
 DB = DatabaseManager(CONFIG["DB_NAME"])
 
@@ -289,7 +292,8 @@ class Division(OperacionBase):
 class OperacionFactory:
     @staticmethod
     def crear(subzona):
-        tipo = random.choice(['+', '-', '*', '/'])
+        # tipo = random.choice(['+', '-', '*', '/'])
+        tipo = random.choice(['/'])      # OJO: hemos cambiado esto para reforzar estudio
         if tipo == '+': return Suma().generar(subzona)
         if tipo == '-': return Resta().generar(subzona)
         if tipo == '*': return Multiplicacion().generar(subzona)
@@ -533,6 +537,7 @@ class Game:
                 self.handle_finished()
             pygame.display.flip()
             self.reloj.tick(CONFIG["FPS"])
+        DB.cerrar()
         pygame.quit()
 
     def handle_menu(self):
