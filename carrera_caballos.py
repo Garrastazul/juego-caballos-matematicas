@@ -292,8 +292,8 @@ class Division(OperacionBase):
 class OperacionFactory:
     @staticmethod
     def crear(subzona):
-        # tipo = random.choice(['+', '-', '*', '/'])
-        tipo = random.choice(['/'])      # OJO: hemos cambiado esto para reforzar estudio
+        tipo = random.choice(['-', '*'])
+        # tipo = random.choice(['/'])      # OJO: hemos cambiado esto para reforzar estudio
         if tipo == '+': return Suma().generar(subzona)
         if tipo == '-': return Resta().generar(subzona)
         if tipo == '*': return Multiplicacion().generar(subzona)
