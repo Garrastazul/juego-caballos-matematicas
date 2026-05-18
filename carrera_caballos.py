@@ -9,9 +9,9 @@ from enum import Enum
 from decimal import Decimal, ROUND_HALF_UP
 from PIL import Image
 
-# --- Constantes de momento (NUEVAS) ---
-MOMENTUM_FACTOR = 0.2      # 20% extra por cada acierto consecutivo
-MAX_MOMENTUM_MULT = 3.0    # como máximo 3x el avance base
+# --- Constantes de momento ---
+MOMENTUM_FACTOR = 0.2
+MAX_MOMENTUM_MULT = 3.0
 
 # --- 1. Configuración Externa (JSON) ---
 DEFAULT_CONFIG = {
@@ -154,7 +154,7 @@ fuente_menu_small = pygame.font.SysFont("Verdana", 25)
 NUMPAD_DIGITOS = {getattr(pygame, f"K_KP{i}"): str(i) for i in range(10)}
 NUMPAD_DIGITOS[pygame.K_KP_PERIOD] = "."
 
-# --- Base de Datos (sin cambios) ---
+# --- Base de Datos ---
 class DatabaseManager:
     def __init__(self, db_name):
         self.conn = sqlite3.connect(db_name)
@@ -215,7 +215,7 @@ class DatabaseManager:
 
 DB = DatabaseManager(CONFIG["DB_NAME"])
 
-# --- Operaciones (sin cambios) ---
+# --- Operaciones ---
 class OperacionBase:
     def generar(self, subzona): raise NotImplementedError
 
@@ -292,12 +292,43 @@ class Division(OperacionBase):
 class OperacionFactory:
     @staticmethod
     def crear(subzona):
-        tipo = random.choice(['-', '*'])
-        # tipo = random.choice(['/'])      # OJO: hemos cambiado esto para reforzar estudio
-        if tipo == '+': return Suma().generar(subzona)
-        if tipo == '-': return Resta().generar(subzona)
-        if tipo == '*': return Multiplicacion().generar(subzona)
-        return Division().generar(subzona)
+        # NOTA: Activadas todas las operaciones para que se pueda testear la división
+        tipo = random.choice(['*', '÷'])
+        
+        if tipo == '+': op_texto, op_res = Suma().generar(subzona)
+        elif tipo == '-': op_texto, op_res = Resta().generar(subzona)
+        elif tipo == '*': op_texto, op_res = Multiplicacion().generar(subzona)
+        else: op_texto, op_res = Division().generar(subzona)
+
+        # Extraemos a y b de la cadena para contar sus decimales dinámicamente
+        partes = op_texto.split()
+        a_str, operador, b_str = partes[0], partes[1], partes[2]
+
+        def contar_decimales(s):
+            if '.' in s:
+                return len(s.split('.')[1].rstrip('0'))
+            return 0
+
+        dec_a = contar_decimales(a_str)
+        dec_b = contar_decimales(b_str)
+
+        # Lógica de precisión solicitada
+        if operador == '÷':
+            if dec_a == 0 and dec_b == 0:
+                precision_req = 2
+            else:
+                precision_req = abs(dec_a - dec_b)
+                
+            # Sobre-escribimos op_res con la división matemática exacta para no arrastrar redondeos previos
+            op_res = float(a_str) / float(b_str)
+            
+        elif operador in ['+', '-']:
+            precision_req = max(dec_a, dec_b)
+        else: # Multiplicación
+            precision_req = dec_a + dec_b
+
+        # Retornamos un tercer valor con la precisión estrictamente exigida
+        return op_texto, op_res, precision_req
 
 class Stats:
     def __init__(self, historial_inicial=None):
@@ -355,7 +386,6 @@ class Caballo:
         self.es_fantasma = es_fantasma
         self.precision_fantasma = precision_fantasma
         self.tiempo_medio_fantasma = tiempo_medio_fantasma
-        # NUEVO: racha interna para el fantasma
         self.fantasy_streak = 0 if es_fantasma else None
 
         self.frames = AssetManager.get_caballo(imagen_path, color)
@@ -396,11 +426,10 @@ class Caballo:
         if self.rect.right >= CONFIG["META_X"]:
             self.meta_alcanzada = True
 
-    def avanzar(self, base_pixeles):      # <-- MODIFICADO: ahora aplica momento
+    def avanzar(self, base_pixeles):
         streak = self.current_streak
         extra = base_pixeles * streak * MOMENTUM_FACTOR
         total = base_pixeles + extra
-        # Limitar el avance máximo
         total = min(total, base_pixeles * MAX_MOMENTUM_MULT)
         self.target_x += total
         sound_manager.play('caballo', maxtime=DURACION_SONIDO_CABALLO)
@@ -410,7 +439,7 @@ class Caballo:
         self.pos_x = max(0.0, self.pos_x)
         sound_manager.play('error', maxtime=DURACION_SONIDO_CABALLO)
 
-    def avanzar_fantasma(self):          # <-- MODIFICADO: actualiza la racha del fantasma
+    def avanzar_fantasma(self):
         if random.random() < self.precision_fantasma:
             self.fantasy_streak += 1
             self.avanzar(PIXELES_AVANZA)
@@ -447,7 +476,8 @@ class ManagerEntrada:
 
     def generar_nueva_op(self):
         subzona = self.caballo.stats.get_subzona()
-        self.op_texto, self.op_res = OperacionFactory.crear(subzona)
+        # Ahora desempaquetamos los 3 valores
+        self.op_texto, self.op_res, self.precision_req = OperacionFactory.crear(subzona)
         self.start_time = pygame.time.get_ticks()
 
     def procesar_tecla(self, tecla, char, es_borrar, es_confirmar):
@@ -457,15 +487,29 @@ class ManagerEntrada:
             try:
                 entrada = self.input_text.replace(',', '.')
                 val = Decimal(entrada)
-                cuantizador = Decimal('1.' + '0' * len(entrada.split('.')[1])) if '.' in entrada else Decimal('1')
-                esperado = Decimal(str(self.op_res)).quantize(cuantizador, rounding=ROUND_HALF_UP)
+                
+                # Cuantizador basado en la regla de negocio (la operación dicta la exigencia, no el input del usuario)
+                if self.precision_req > 0:
+                    cuantizador = Decimal('1.' + '0' * self.precision_req)
+                else:
+                    cuantizador = Decimal('1')
+                
+                esperado_exacto = Decimal(str(self.op_res))
+                
+                # Cuantizamos a ambos a la precisión requerida para comparar en igualdad de condiciones
+                val_q = val.quantize(cuantizador, rounding=ROUND_HALF_UP)
+                esperado_q = esperado_exacto.quantize(cuantizador, rounding=ROUND_HALF_UP)
+                
+                es_correcta = (val_q == esperado_q)
                 tiempo = pygame.time.get_ticks() - self.start_time
-                es_correcta = (val == esperado)
+                
                 self.caballo.stats.registrar_respuesta(es_correcta)
                 if self.caballo.guardar_datos:
                     subzona_actual = self.caballo.stats.get_subzona()
-                    DB.guardar(self.caballo.nombre, self.op_texto, float(val), float(esperado),
+                    # Guardamos los float para SQLite usando el esperado limpio
+                    DB.guardar(self.caballo.nombre, self.op_texto, float(val), float(esperado_q),
                                es_correcta, {"a":1, "b":2, "c":3}[subzona_actual], subzona_actual, tiempo)
+                               
                 if es_correcta:
                     self.caballo.avanzar(PIXELES_AVANZA)
                     self.mensaje, self.efecto_color = "¡CORRECTO!", (0, 255, 0)
@@ -514,7 +558,7 @@ class Boton:
     def es_clickeado(self, mouse_pos):
         return self.rect.collidepoint(mouse_pos)
 
-# --- Clase principal del juego (máquina de estados con finalización suave) ---
+# --- Clase principal del juego ---
 class Game:
     def __init__(self):
         self.ventana = pygame.display.set_mode((CONFIG["ANCHO"], CONFIG["ALTO"]))
@@ -616,20 +660,17 @@ class Game:
                         if tecla in NUMPAD_DIGITOS or tecla in [pygame.K_DELETE, pygame.K_KP_ENTER]:
                             self.uis[1].procesar_tecla(tecla, NUMPAD_DIGITOS.get(tecla, char), tecla == pygame.K_DELETE, tecla == pygame.K_KP_ENTER)
             
-            # Actualizar caballos (congelado controla si se permiten nuevos movimientos)
             for caballo in self.caballos:
                 caballo.actualizar(congelado=self.congelado)
 
-            # Verificar ganador
             if not self.ganador:
                 for caballo in self.caballos:
                     if caballo.meta_alcanzada:
                         self.ganador = "¡EL SHADOW GANA!" if (self.modalidad == "fantasma" and caballo.es_fantasma) else \
                                        "¡EL JUGADOR 1 GANA!" if caballo == self.caballos[0] else "¡EL JUGADOR 2 GANA!"
-                        self.congelado = True  # Desactiva entrada y avance fantasma
+                        self.congelado = True
                         break
 
-            # Si hay ganador, verificar si los caballos ya terminaron su movimiento
             if self.congelado:
                 todos_quietos = all(not caballo.esta_en_movimiento() for caballo in self.caballos)
                 if todos_quietos:
