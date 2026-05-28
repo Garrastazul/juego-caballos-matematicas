@@ -3,9 +3,9 @@ INFORME DE RENDIMIENTO - JUGADOR 2
 ================================================================================
 
 RESUMEN GENERAL:
-  Total de operaciones: 33
-  Precisión global: 66.67%
-  Tiempo medio: 31.77s
+  Total de operaciones: 42
+  Precisión global: 64.29%
+  Tiempo medio: 34.25s
   Racha máxima: 6
 
 ESTADÍSTICAS POR TIPO DE OPERACIÓN:
@@ -13,14 +13,14 @@ ESTADÍSTICAS POR TIPO DE OPERACIÓN:
 tipo_operacion                                                                     
 Suma                7          6      86.00         24.71         7.33         0.93
 Resta              10          8      80.00         21.86        11.42         0.74
-Multiplicación     11          7      64.00         39.88        28.63         4.40
-División            5          1      20.00         43.59        16.01         7.00
+Multiplicación     18         11      61.00         44.14        29.62         3.13
+División            7          2      29.00         36.07        18.78         5.10
 
 ESTADÍSTICAS POR DIFICULTAD:
                   Total  Correctas  Precisión  Tiempo_Medio  Desv_Tiempo  Error_Medio  Racha_Max
 nivel_dificultad                                                                                
-Fácil             15.00      11.00      73.00         21.86        11.15         2.20       5.00
-Medio             18.00      11.00      61.00         40.02        23.05         3.57       6.00
+Fácil             16.00      11.00      69.00         24.67        15.57         2.19       5.00
+Medio             26.00      16.00      62.00         40.15        25.67         2.73       6.00
 Difícil             NaN        NaN        NaN           NaN          NaN          NaN        NaN
 
 ACTIVIDAD DIARIA:
@@ -28,3 +28,4 @@ ACTIVIDAD DIARIA:
 fecha                                                        
 2026-05-11           16      69.00         39.02            6
 2026-05-13           17      65.00         24.94            5
+2026-05-18            9      56.00         43.38            6

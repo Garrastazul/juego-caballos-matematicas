@@ -53,7 +53,7 @@ class SoundManager:
             'sfx': pygame.mixer.Channel(0),
             'ambience': pygame.mixer.Channel(1)
         }
-        
+
     def load(self, name, path):
         try:
             if path.lower().endswith('.mp3'):
@@ -65,7 +65,7 @@ class SoundManager:
         except Exception as e:
             print(f"No se pudo cargar '{name}': {e}")
             self.sounds[name] = None
-            
+
     def _load_mp3_safe(self, path):
         try:
             return pygame.mixer.Sound(path)
@@ -81,7 +81,7 @@ class SoundManager:
             except ImportError:
                 print("pydub no instalado, no se puede convertir MP3.")
                 return None
-            
+
     def play(self, name, maxtime=0):
         sound = self.sounds.get(name)
         if sound and not self.channels['sfx'].get_busy():
@@ -196,8 +196,8 @@ class DatabaseManager:
 
     def obtener_ultimas_respuestas(self, nombre_jugador, limite=20):
         self.cursor.execute('''
-            SELECT es_correcta FROM operaciones 
-            WHERE jugador = ? 
+            SELECT es_correcta FROM operaciones
+            WHERE jugador = ?
             ORDER BY id DESC LIMIT ?
         ''', (nombre_jugador, limite))
         filas = self.cursor.fetchall()
@@ -209,7 +209,7 @@ class DatabaseManager:
             VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         ''', (jugador, op, resp_j, resp_c, corr, diff, subz, tiempo))
         self.conn.commit()
-    
+
     def cerrar(self):
         self.conn.close()
 
@@ -289,18 +289,131 @@ class Division(OperacionBase):
                 resultado = round(dividendo / b, 3)
             return f"{dividendo} ÷ {b}", resultado
 
+class PorcentajeDeNumero(OperacionBase):
+    def generar(self, subzona):
+        if subzona == "a":
+            pcts = [10, 20, 25, 50]
+            nums = [100, 200, 300, 400, 500]
+        elif subzona == "b":
+            pcts = [10, 15, 20, 25, 30, 50, 75]
+            nums = [20, 40, 50, 60, 80, 100, 120, 150, 200, 300, 400]
+        else:
+            pcts = [5, 8, 12, 15, 20, 25, 30, 40, 45, 60, 75]
+            nums = [24, 36, 45, 48, 50, 60, 75, 80, 90, 120, 150, 180, 200, 250, 300]
+        pct = random.choice(pcts)
+        num = random.choice(nums)
+        resultado = (pct * num) / 100
+        if resultado == int(resultado):
+            resultado = int(resultado)
+        return f"{pct}% de {num}", float(resultado)
+
+class DescuentoPorcentual(OperacionBase):
+    def generar(self, subzona):
+        if subzona == "a":
+            pcts = [10, 20, 25, 50]
+            precios = [50, 80, 100, 200]
+        elif subzona == "b":
+            pcts = [10, 15, 20, 25, 30, 50]
+            precios = [30, 45, 60, 80, 90, 120, 150, 200]
+        else:
+            pcts = [5, 10, 12, 15, 20, 25, 30, 40]
+            precios = [18, 24, 36, 48, 50, 60, 75, 80, 90, 120, 150, 180]
+        pct = random.choice(pcts)
+        precio = random.choice(precios)
+        descuento = (pct * precio) / 100
+        precio_final = precio - descuento
+        if precio_final == int(precio_final):
+            precio_final = int(precio_final)
+        return f"{precio}€ - {pct}%", float(precio_final)
+
+class AumentoPorcentual(OperacionBase):
+    def generar(self, subzona):
+        if subzona == "a":
+            pcts = [10, 20, 25, 50]
+            nums = [50, 80, 100, 200]
+        elif subzona == "b":
+            pcts = [10, 15, 20, 25, 30, 50]
+            nums = [30, 45, 60, 80, 90, 120, 150, 200]
+        else:
+            pcts = [5, 10, 12, 15, 20, 25, 30, 40]
+            nums = [18, 24, 36, 48, 50, 60, 75, 80, 90, 120, 150, 180]
+        pct = random.choice(pcts)
+        num = random.choice(nums)
+        aumento = (pct * num) / 100
+        total = num + aumento
+        if total == int(total):
+            total = int(total)
+        return f"{num} + {pct}%", float(total)
+
+class DivisionDecimal(OperacionBase):
+    def generar(self, subzona):
+        if subzona == "a":
+            divisor = 10
+            nums_base = [random.randint(10, 99) for _ in range(5)]
+        elif subzona == "b":
+            divisor = random.choice([10, 100])
+            if divisor == 10:
+                nums_base = [random.randint(10, 999) for _ in range(5)]
+            else:
+                nums_base = [random.randint(100, 9999) for _ in range(5)]
+        else:
+            divisor = random.choice([10, 100, 1000])
+            if divisor == 10:
+                nums_base = [random.randint(1, 999) for _ in range(5)]
+            elif divisor == 100:
+                nums_base = [random.randint(1, 9999) for _ in range(5)]
+            else:
+                nums_base = [random.randint(1, 99999) for _ in range(5)]
+        num = random.choice(nums_base)
+        resultado = num / divisor
+        return f"{num} ÷ {divisor}", resultado
+
+class Multiplos(OperacionBase):
+    def generar(self, subzona):
+        if subzona == "a":
+            bases = [2, 3, 4, 5]
+            multiplicadores = [2, 3, 4, 5]
+        elif subzona == "b":
+            bases = [2, 3, 4, 5, 6, 7, 8, 9]
+            multiplicadores = [3, 4, 5, 6, 7]
+        else:
+            bases = [6, 7, 8, 9, 11, 12]
+            multiplicadores = [4, 5, 6, 7, 8, 9]
+        base = random.choice(bases)
+        mult = random.choice(multiplicadores)
+        resultado = base * mult
+        return f"{mult}º múltiplo de {base}", resultado
+
 class OperacionFactory:
     @staticmethod
     def crear(subzona):
-        # NOTA: Activadas todas las operaciones para que se pueda testear la división
-        tipo = random.choice(['*', '÷'])
-        
+        # tipos_disponibles = ['+', '-', '*', '÷', '%', 'desc', 'aum', '/10', 'mult']
+        tipos_disponibles = ['%', 'desc', 'aum', '/10']
+
+        tipo = random.choice(tipos_disponibles)
+
+        if tipo == '%':
+            op_texto, op_res = PorcentajeDeNumero().generar(subzona)
+            return op_texto, op_res, 0
+        if tipo == 'desc':
+            op_texto, op_res = DescuentoPorcentual().generar(subzona)
+            return op_texto, op_res, 0
+        if tipo == 'aum':
+            op_texto, op_res = AumentoPorcentual().generar(subzona)
+            return op_texto, op_res, 0
+        if tipo == '/10':
+            op_texto, op_res = DivisionDecimal().generar(subzona)
+            divisor = int(op_texto.split()[-1])
+            return op_texto, op_res, int(math.log10(divisor))
+        if tipo == 'mult':
+            op_texto, op_res = Multiplos().generar(subzona)
+            return op_texto, op_res, 0
+
         if tipo == '+': op_texto, op_res = Suma().generar(subzona)
         elif tipo == '-': op_texto, op_res = Resta().generar(subzona)
         elif tipo == '*': op_texto, op_res = Multiplicacion().generar(subzona)
         else: op_texto, op_res = Division().generar(subzona)
 
-        # Extraemos a y b de la cadena para contar sus decimales dinámicamente
         partes = op_texto.split()
         a_str, operador, b_str = partes[0], partes[1], partes[2]
 
@@ -312,22 +425,17 @@ class OperacionFactory:
         dec_a = contar_decimales(a_str)
         dec_b = contar_decimales(b_str)
 
-        # Lógica de precisión solicitada
         if operador == '÷':
             if dec_a == 0 and dec_b == 0:
                 precision_req = 2
             else:
                 precision_req = abs(dec_a - dec_b)
-                
-            # Sobre-escribimos op_res con la división matemática exacta para no arrastrar redondeos previos
             op_res = float(a_str) / float(b_str)
-            
         elif operador in ['+', '-']:
             precision_req = max(dec_a, dec_b)
-        else: # Multiplicación
+        else:
             precision_req = dec_a + dec_b
 
-        # Retornamos un tercer valor con la precisión estrictamente exigida
         return op_texto, op_res, precision_req
 
 class Stats:
@@ -404,7 +512,7 @@ class Caballo:
             self.stats = Stats()
 
     @property
-    def current_streak(self):            
+    def current_streak(self):
         if self.es_fantasma:
             return self.fantasy_streak
         else:
@@ -433,7 +541,7 @@ class Caballo:
         total = min(total, base_pixeles * MAX_MOMENTUM_MULT)
         self.target_x += total
         sound_manager.play('caballo', maxtime=DURACION_SONIDO_CABALLO)
-    
+
     def punish(self, pixeles):
         self.target_x = max(0.0, self.target_x - pixeles)
         self.pos_x = max(0.0, self.pos_x)
@@ -487,29 +595,29 @@ class ManagerEntrada:
             try:
                 entrada = self.input_text.replace(',', '.')
                 val = Decimal(entrada)
-                
+
                 # Cuantizador basado en la regla de negocio (la operación dicta la exigencia, no el input del usuario)
                 if self.precision_req > 0:
                     cuantizador = Decimal('1.' + '0' * self.precision_req)
                 else:
                     cuantizador = Decimal('1')
-                
+
                 esperado_exacto = Decimal(str(self.op_res))
-                
+
                 # Cuantizamos a ambos a la precisión requerida para comparar en igualdad de condiciones
                 val_q = val.quantize(cuantizador, rounding=ROUND_HALF_UP)
                 esperado_q = esperado_exacto.quantize(cuantizador, rounding=ROUND_HALF_UP)
-                
+
                 es_correcta = (val_q == esperado_q)
                 tiempo = pygame.time.get_ticks() - self.start_time
-                
+
                 self.caballo.stats.registrar_respuesta(es_correcta)
                 if self.caballo.guardar_datos:
                     subzona_actual = self.caballo.stats.get_subzona()
                     # Guardamos los float para SQLite usando el esperado limpio
                     DB.guardar(self.caballo.nombre, self.op_texto, float(val), float(esperado_q),
                                es_correcta, {"a":1, "b":2, "c":3}[subzona_actual], subzona_actual, tiempo)
-                               
+
                 if es_correcta:
                     self.caballo.avanzar(PIXELES_AVANZA)
                     self.mensaje, self.efecto_color = "¡CORRECTO!", (0, 255, 0)
@@ -543,7 +651,7 @@ class Boton:
         self.color_normal = color_normal
         self.color_hover = color_hover
         self.color_actual = color_normal
-        
+
     def dibujar(self, ventana, mouse_pos):
         if self.rect.collidepoint(mouse_pos):
             self.color_actual = self.color_hover
@@ -554,7 +662,7 @@ class Boton:
         texto_render = fuente_menu_small.render(self.texto, True, (255, 255, 255))
         ventana.blit(texto_render, (self.rect.x + self.rect.width//2 - texto_render.get_width()//2,
                                     self.rect.y + self.rect.height//2 - texto_render.get_height()//2))
-        
+
     def es_clickeado(self, mouse_pos):
         return self.rect.collidepoint(mouse_pos)
 
@@ -659,7 +767,7 @@ class Game:
                     else:
                         if tecla in NUMPAD_DIGITOS or tecla in [pygame.K_DELETE, pygame.K_KP_ENTER]:
                             self.uis[1].procesar_tecla(tecla, NUMPAD_DIGITOS.get(tecla, char), tecla == pygame.K_DELETE, tecla == pygame.K_KP_ENTER)
-            
+
             for caballo in self.caballos:
                 caballo.actualizar(congelado=self.congelado)
 
