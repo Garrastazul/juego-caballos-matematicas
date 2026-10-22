@@ -18,7 +18,7 @@
         255
     ],
     "META_X": 900,
-    "NUM_OPERACIONES": 3,
+    "NUM_OPERACIONES": 7,
     "DB_NAME": "estadisticas_juego.db",
     "CABALLO_GIF": "caballo.gif"
 }
